@@ -235,6 +235,9 @@ px_manager_dispose (GObject *object)
     g_clear_object (&list->data);
 
   g_clear_pointer (&self->config_plugin, g_free);
+#ifdef HAVE_CURL
+  g_clear_pointer (&self->curl, curl_easy_cleanup);
+#endif
 
   G_OBJECT_CLASS (px_manager_parent_class)->dispose (object);
 }
@@ -563,7 +566,7 @@ px_manager_expand_wpad (PxManager *self,
       } else {
         g_debug ("%s: PAC recevied!", __FUNCTION__);
         if (!px_manager_set_pac (self)) {
-          g_warning ("%s: Unable to set PAC from %s while online = %d!", __FUNCTION__, self->pac_url, self->online);
+          g_debug ("%s: Unable to set PAC from %s while online = %d!", __FUNCTION__, self->pac_url, self->online);
           g_clear_pointer (&self->pac_url, g_free);
           g_clear_pointer (&self->pac_data, g_bytes_unref);
           ret = FALSE;

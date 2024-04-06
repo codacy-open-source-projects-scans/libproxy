@@ -1,5 +1,5 @@
 project('libproxy', 'c',
-          version: '0.5.4',
+          version: '0.5.5',
     meson_version: '>= 0.59.0',
   default_options: [ 'warning_level=2', 'werror=false', 'c_std=gnu11', ],
 )
@@ -89,13 +89,22 @@ foreach arg: test_c_args
 endforeach
 add_project_arguments(project_c_args, language: 'c')
 
-_platforms = []
-host_system = host_machine.system()
-if host_machine.system() == 'windows'
-    _platforms = ['windows']
+if cc.get_id() == 'gcc' or cc.get_id() == 'clang'
+warning_link_args = ['-Wl,-z,nodelete']
+else
+warning_link_args = []
 endif
-with_platform_windows = _platforms.contains('windows')
-with_platform_darwin = ['darwin', 'ios'].contains(host_system)
+
+project_link_args = cc.get_supported_link_arguments(warning_link_args)
+add_project_link_arguments (project_link_args, language: 'c')
+
+host_system = host_machine.system()
+with_platform_windows = host_system == 'windows'
+with_platform_darwin = cc.compiles('''#include <Availability.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_OSX || __MAC_OS_X_VERSION_MIN_REQUIRED <= 100100L
+#error "Not building for macOS"
+#endif''')
 
 module_suffix = []
 # Keep the autotools convention for shared module suffix because GModule
@@ -119,14 +128,17 @@ summary({
   'host endian' : host_machine.endian(),
   'host system' : host_system,
   'C Compiler' : cc.get_id(),
+  'Release' : get_option('release'),
 }, section: 'Build environment')
 
 summary({
   'Vapi' : get_option('vapi'),
 }, section: 'Options')
 
-# Install pre-commit hook
-hook = run_command(join_paths(meson.project_source_root(), 'data/install-git-hook.sh'), check: false)
-if hook.returncode() == 0
-  message(hook.stdout().strip())
+if not get_option('release')
+	# Install pre-commit hook
+	hook = run_command(join_paths(meson.project_source_root(), 'data/install-git-hook.sh'), check: false)
+	if hook.returncode() == 0
+	  message(hook.stdout().strip())
+	endif
 endif
