@@ -141,13 +141,13 @@ static void
 px_manager_add_config_plugin (PxManager *self,
                               GType      type)
 {
-  PxConfig *config = g_object_new (type, "config-option", self->config_option, NULL);
+  g_autoptr (PxConfig) config = g_object_new (type, "config-option", self->config_option, NULL);
   PxConfigInterface *ifc = PX_CONFIG_GET_IFACE (config);
   const char *env = g_getenv ("PX_FORCE_CONFIG");
   const char *force_config = self->config_plugin ? self->config_plugin : env;
 
   if (!force_config || g_strcmp0 (ifc->name, force_config) == 0)
-    self->config_plugins = g_list_insert_sorted (self->config_plugins, config, config_order_compare);
+    self->config_plugins = g_list_insert_sorted (self->config_plugins, g_steal_pointer (&config), config_order_compare);
 }
 
 static void
@@ -235,11 +235,8 @@ px_manager_dispose (GObject *object)
 {
   PxManager *self = PX_MANAGER (object);
 
-  for (GList *list = self->config_plugins; list && list->data; list = list->next)
-    g_clear_object (&list->data);
-
-  for (GList *list = self->pacrunner_plugins; list && list->data; list = list->next)
-    g_clear_object (&list->data);
+  g_clear_list (&self->config_plugins, g_object_unref);
+  g_clear_list (&self->pacrunner_plugins, g_object_unref);
 
   g_clear_pointer (&self->config_plugin, g_free);
 #ifdef HAVE_CURL
